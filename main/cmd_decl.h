@@ -15,6 +15,7 @@ extern "C" {
 #include "cmd_system.h"
 #include "cmd_nvs.h"
 #include "cmd_router.h"
+#include "temp_ctrl.h"
 
 #ifdef __cplusplus
 }

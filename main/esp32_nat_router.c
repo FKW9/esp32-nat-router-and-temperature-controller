@@ -15,8 +15,8 @@
 #include "esp_console.h"
 #include "esp_vfs_dev.h"
 #include "driver/uart.h"
-#include "esp_vfs_usb_serial_jtag.h"
-#include "driver/usb_serial_jtag.h"
+#include "esp_vfs_usb_serial_jTAG.h"
+#include "driver/usb_serial_jTAG.h"
 #include "linenoise/linenoise.h"
 #include "argtable3/argtable3.h"
 #include "esp_vfs_fat.h"
@@ -245,7 +245,7 @@ static void initialize_console(void)
     /* Drain stdout before reconfiguring it */
     fflush(stdout);
     fsync(fileno(stdout));
-    
+
     /* Minicom, screen, idf_monitor send CR when ENTER key is pressed */
     esp_vfs_dev_uart_port_set_rx_line_endings(0, ESP_LINE_ENDINGS_CR);
     /* Move the caret to the beginning of the next line on '\n' */
@@ -280,20 +280,20 @@ static void initialize_console(void)
     fcntl(fileno(stdin), F_SETFL, O_NONBLOCK);
 
     /* Minicom, screen, idf_monitor send CR when ENTER key is pressed */
-    esp_vfs_dev_usb_serial_jtag_set_rx_line_endings(ESP_LINE_ENDINGS_CR);
+    esp_vfs_dev_usb_serial_jTAG_set_rx_line_endings(ESP_LINE_ENDINGS_CR);
 
     /* Move the caret to the beginning of the next line on '\n' */
-    esp_vfs_dev_usb_serial_jtag_set_tx_line_endings(ESP_LINE_ENDINGS_CRLF);
-    usb_serial_jtag_driver_config_t usb_serial_jtag_config = {
+    esp_vfs_dev_usb_serial_jTAG_set_tx_line_endings(ESP_LINE_ENDINGS_CRLF);
+    usb_serial_jTAG_driver_config_t usb_serial_jTAG_config = {
         .tx_buffer_size = 256,
         .rx_buffer_size = 256,
     };
 
     /* Install USB-SERIAL-JTAG driver for interrupt-driven reads and writes */
-    usb_serial_jtag_driver_install(&usb_serial_jtag_config);
+    usb_serial_jTAG_driver_install(&usb_serial_jTAG_config);
 
-    /* Tell vfs to use usb-serial-jtag driver */
-    esp_vfs_usb_serial_jtag_use_driver();
+    /* Tell vfs to use usb-serial-jTAG driver */
+    esp_vfs_usb_serial_jTAG_use_driver();
 #endif
 
     /* Initialize the console */
@@ -343,6 +343,16 @@ void * led_status_thread(void * p)
         }
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void * temp_control_thread(void * p)
+{
+    initialize_temperature_control();
+
+    while (true)
+    {
+        temperature_control_loop();
     }
 }
 
@@ -400,7 +410,7 @@ void wifi_init(const char* ssid, const char* ent_username, const char* ent_ident
     // esp_netif_dns_info_t dnsinfo;
 
     wifi_event_group = xEventGroupCreate();
-  
+
     esp_netif_init();
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     wifiAP = esp_netif_create_default_wifi_ap();
@@ -450,7 +460,7 @@ void wifi_init(const char* ssid, const char* ent_username, const char* ent_ident
             .channel = 0,
             .authmode = WIFI_AUTH_WPA2_WPA3_PSK,
             .ssid_hidden = 0,
-            .max_connection = 8,
+            .max_connection = 3,
             .beacon_interval = 100,
         }
     };
@@ -488,7 +498,7 @@ void wifi_init(const char* ssid, const char* ent_username, const char* ent_ident
         ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_config) );
     } else {
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP) );
-        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_config) );        
+        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_config) );
     }
 
 
@@ -513,7 +523,7 @@ void wifi_init(const char* ssid, const char* ent_username, const char* ent_ident
         ESP_LOGI(TAG, "wifi_init_apsta finished.");
         ESP_LOGI(TAG, "connect to ap SSID: %s ", ssid);
     } else {
-        ESP_LOGI(TAG, "wifi_init_ap with default finished.");      
+        ESP_LOGI(TAG, "wifi_init_ap with default finished.");
     }
 }
 
@@ -576,7 +586,7 @@ void app_main(void)
     get_config_param_str("ap_ssid", &ap_ssid);
     if (ap_ssid == NULL) {
         ap_ssid = param_set_default("ESP32_NAT_Router");
-    }   
+    }
     get_config_param_str("ap_passwd", &ap_passwd);
     if (ap_passwd == NULL) {
         ap_passwd = param_set_default("");
@@ -593,6 +603,9 @@ void app_main(void)
 
     pthread_t t1;
     pthread_create(&t1, NULL, led_status_thread, NULL);
+
+    pthread_t t2;
+    pthread_create(&t2, NULL, temp_control_thread, NULL);
 
     ip_napt_enable(my_ap_ip, 1);
     ESP_LOGI(TAG, "NAT is enabled");
@@ -630,7 +643,7 @@ void app_main(void)
     if (strlen(ssid) == 0) {
          printf("\n"
                "Unconfigured WiFi\n"
-               "Configure using 'set_sta' and 'set_ap' and restart.\n");       
+               "Configure using 'set_sta' and 'set_ap' and restart.\n");
     }
 
     /* Figure out if the terminal supports escape sequences */
@@ -648,6 +661,8 @@ void app_main(void)
         prompt = "esp32> ";
 #endif //CONFIG_LOG_COLORS
     }
+
+    add_portmap(PROTO_TCP, 8080, esp_ip4addr_aton("192.168.4.5"), 80);
 
     /* Main loop */
     while(true) {

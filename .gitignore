@@ -11,3 +11,4 @@ build/**
 sdkconfig.*
 sdkconfig.old
 !sdkconfig.defaults
+logs

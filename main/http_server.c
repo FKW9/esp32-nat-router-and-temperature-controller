@@ -117,7 +117,7 @@ static esp_err_t index_get_handler(httpd_req_t *req)
                                 argv[argc++] = "-a";
                                 argv[argc++] = param4;
                             }
-                            
+
                     set_sta(argc, argv);
                     esp_timer_start_once(restart_timer, 500000);
                         }
