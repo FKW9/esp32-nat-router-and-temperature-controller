@@ -276,16 +276,16 @@ static void heater_control(float temperature)
         if (!get_relay_state())
         {
             ESP_LOGI(TAG, "Temperature under setpoint, turning relay on");
-            set_relay_state(1);
         }
+        set_relay_state(1);
     }
     else if (temperature > temperature_setpoint + temperature_hysteresis_max)
     {
         if (get_relay_state())
         {
             ESP_LOGI(TAG, "Temperature setpoint reached, turning relay off");
-            set_relay_state(0);
         }
+        set_relay_state(0);
     }
 }
 
@@ -347,7 +347,7 @@ static uint8_t heater_control_enabled(void)
 static void set_relay_state(uint8_t state)
 {
     gpio_set_level(RELAY_PIN, state);
-    set_tasmota_relay(state);
+    // set_tasmota_relay(state);
 }
 
 static uint8_t get_relay_state(void)
